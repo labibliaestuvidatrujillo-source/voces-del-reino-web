@@ -197,8 +197,7 @@ pour out Your power, Lord, I believe.
               </button>
 
               <p className="text-xs text-white/50">
-                Nota: aún no usa IA real. En el siguiente paso conectaremos OpenAI
-                para generar letras y acordes automáticamente.
+                “Consejo: escribe un versículo y un tema claro para que la canción salga más bíblica y congregacional.”
               </p>
             </div>
           </div>

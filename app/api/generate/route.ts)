@@ -1,0 +1,77 @@
+import OpenAI from "openai";
+
+export const runtime = "nodejs";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const { language, topic, style, bibleVerse, key, tempo } = body;
+
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json(
+        { error: "Missing OPENAI_API_KEY env variable" },
+        { status: 500 }
+      );
+    }
+
+    const system = `
+Eres un compositor cristiano y productor musical.
+Generas alabanzas congregacionales pentecostales (worship moderno).
+Siempre debes mantener doctrina sana, lenguaje reverente y bíblico.
+No menciones autores reales ni copies canciones existentes.
+Entrega acordes reales en la tonalidad solicitada.
+`;
+
+    const prompt = `
+Genera una canción cristiana original.
+
+Idioma: ${language === "es" ? "Español" : "English"}
+Tema/Mensaje: ${topic || "(no especificado)"}
+Versículo base: ${bibleVerse || "(no especificado)"}
+Estilo musical: ${style}
+Tonalidad: ${key}
+Tempo: ${tempo} BPM
+
+Requisitos:
+- Estructura: Verso 1, Coro, Verso 2, Coro, Puente, Coro final
+- Indica acordes encima de cada sección (progresión por línea)
+- Acordes deben estar en tonalidad ${key}
+- Usa lenguaje congregacional (para cantar en iglesia)
+- Devuelve salida SOLO en JSON con esta estructura EXACTA:
+
+{
+  "title": "",
+  "key": "",
+  "tempo": 0,
+  "timeSignature": "4/4",
+  "chords": ["", "", "", ""],
+  "lyrics": ""
+}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.9,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+    });
+
+    const text = completion.choices[0]?.message?.content || "{}";
+    const json = JSON.parse(text);
+
+    return Response.json(json);
+  } catch (err: any) {
+    return Response.json(
+      { error: "Generate failed", details: err?.message ?? String(err) },
+      { status: 500 }
+    );
+  }
+}
