@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type SongResult = {
   title: string;
@@ -11,95 +11,134 @@ type SongResult = {
   lyrics: string;
 };
 
+// ============================
+// Límite GRATIS por día
+// ============================
+const LIMIT_PER_DAY = 3;
+
+function todayKey() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getUsage() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = localStorage.getItem("voces_usage");
+    if (!raw) return { date: todayKey(), count: 0 };
+    const parsed = JSON.parse(raw);
+
+    if (!parsed?.date || typeof parsed?.count !== "number") {
+      return { date: todayKey(), count: 0 };
+    }
+
+    if (parsed.date !== todayKey()) {
+      return { date: todayKey(), count: 0 };
+    }
+
+    return parsed;
+  } catch {
+    return { date: todayKey(), count: 0 };
+  }
+}
+
+function canGenerateToday() {
+  const usage = getUsage();
+  if (!usage) return { ok: true, remaining: LIMIT_PER_DAY, limit: LIMIT_PER_DAY };
+
+  const remaining = Math.max(0, LIMIT_PER_DAY - usage.count);
+  return { ok: remaining > 0, remaining, limit: LIMIT_PER_DAY };
+}
+
+function registerGeneration() {
+  const usage = getUsage();
+  if (!usage) return;
+
+  const updated = {
+    date: todayKey(),
+    count: Math.min(LIMIT_PER_DAY, usage.count + 1),
+  };
+  localStorage.setItem("voces_usage", JSON.stringify(updated));
+}
+
 export default function StudioPage() {
   const [language, setLanguage] = useState<"es" | "en">("es");
   const [topic, setTopic] = useState("");
+  const [verse, setVerse] = useState("");
   const [style, setStyle] = useState("Worship pentecostal moderno");
-  const [bibleVerse, setBibleVerse] = useState("");
   const [key, setKey] = useState("D");
   const [tempo, setTempo] = useState(74);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SongResult | null>(null);
 
+  // ✅ Evita hydration error (solo cliente)
+  const [limitPreview, setLimitPreview] = useState<{
+    ok: boolean;
+    remaining: number;
+    limit: number;
+  } | null>(null);
+
+  useEffect(() => {
+    setLimitPreview(canGenerateToday());
+  }, []);
+
   const keys = useMemo(
     () => ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
     []
   );
 
-  function createTemplateSong(): SongResult {
-    // Esto es una demo local (sin IA todavía)
-    const title =
-      language === "es" ? "Tu Presencia Me Renueva" : "Your Presence Renews Me";
-
-    const chords =
-      key === "D"
-        ? ["D", "Bm", "G", "A"]
-        : key === "C"
-        ? ["C", "Am", "F", "G"]
-        : [key, `${key}m`, "IV", "V"];
-
-    const lyricsES = `# ${title}
-Tonalidad: ${key} | Tempo: ${tempo} BPM | Compás: 4/4
-
-## Verso 1
-En medio del desierto Tú me haces florecer,
-Tu Espíritu me guía, me enseña a obedecer.
-Tu palabra es mi fuerza, mi pan y mi verdad,
-en Ti mi alma descansa, en Ti hay libertad.
-
-## Coro
-// (${chords.join(" - ")})
-Santo, Santo, mi Dios,
-Tu gloria llena el corazón.
-Yo cantaré, no callaré,
-Jesús, mi Rey, te exaltaré.
-
-## Puente
-Aviva el fuego en mi interior,
-derrama tu poder Señor.
-`;
-
-    const lyricsEN = `# ${title}
-Key: ${key} | Tempo: ${tempo} BPM | Time: 4/4
-
-## Verse 1
-In the middle of the desert You make me bloom again,
-Your Spirit gently leads me, teaching me to stand.
-Your Word becomes my strength, my bread, my living truth,
-in You my soul finds rest, in You I’m made new.
-
-## Chorus
-// (${chords.join(" - ")})
-Holy, Holy, my God,
-Your glory fills my heart in awe.
-I will sing, I won’t be still,
-Jesus my King, Your name I will lift.
-
-## Bridge
-Revive the fire in me,
-pour out Your power, Lord, I believe.
-`;
-
-    return {
-      title,
-      key,
-      tempo,
-      timeSignature: "4/4",
-      chords,
-      lyrics: language === "es" ? lyricsES : lyricsEN,
-    };
-  }
-
   async function onGenerate() {
-    setLoading(true);
-    setResult(null);
+    try {
+      if (loading) return;
 
-    // DEMO: simulación
-    await new Promise((r) => setTimeout(r, 700));
-    setResult(createTemplateSong());
+      // Límite gratis
+      const allowed = canGenerateToday();
+      if (!allowed.ok) {
+        alert(
+          `Has llegado al límite GRATIS de hoy (${allowed.limit}). Intenta mañana 🙌`
+        );
+        return;
+      }
 
-    setLoading(false);
+      setLoading(true);
+      setResult(null);
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language,
+          topic,
+          verse,
+          style,
+          key,
+          tempo,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data?.error || "Error generando canción");
+        return;
+      }
+
+      // Guardar resultado
+      setResult(data);
+
+      // registrar uso y actualizar contador visual
+      registerGeneration();
+      setLimitPreview(canGenerateToday());
+    } catch (err) {
+      alert("Error de conexión con la IA");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -108,64 +147,77 @@ pour out Your power, Lord, I believe.
         <div className="mb-8">
           <h1 className="text-3xl font-bold">🎼 Studio</h1>
           <p className="mt-2 text-white/70">
-            Genera letras + acordes + tonalidad. (Ahora demo local, luego IA real)
+            Genera letras + acordes + tonalidad usando IA (OpenAI).
           </p>
+
+          {/* Contador GRATIS sin hydration error */}
+          <div className="mt-2 text-xs text-white/50">
+            {limitPreview ? (
+              <span>
+                Gratis: {limitPreview.remaining}/{limitPreview.limit} generaciones disponibles hoy.
+              </span>
+            ) : (
+              <span>Gratis: 3 generaciones por día.</span>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* FORM */}
+          {/* Config */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">⚙️ Configuración</h2>
+            <h2 className="text-xl font-semibold">⚙️ Configuración</h2>
 
-            <div className="mt-4 grid gap-4">
-              <label className="grid gap-2">
-                <span className="text-sm text-white/70">Idioma</span>
+            <div className="mt-6 grid gap-4">
+              <div>
+                <label className="text-sm text-white/70">Idioma</label>
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as any)}
-                  className="rounded-xl border border-white/10 bg-black px-4 py-3"
+                  onChange={(e) => setLanguage(e.target.value as "es" | "en")}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                 >
                   <option value="es">Español</option>
                   <option value="en">English</option>
                 </select>
-              </label>
+              </div>
 
-              <label className="grid gap-2">
-                <span className="text-sm text-white/70">Tema / mensaje</span>
+              <div>
+                <label className="text-sm text-white/70">Tema / mensaje</label>
                 <input
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   placeholder='Ej: "Restauración", "Dios me levanta", "Gracia y perdón"...'
-                  className="rounded-xl border border-white/10 bg-black px-4 py-3"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                 />
-              </label>
+              </div>
 
-              <label className="grid gap-2">
-                <span className="text-sm text-white/70">Versículo base</span>
+              <div>
+                <label className="text-sm text-white/70">
+                  Versículo base (opcional)
+                </label>
                 <input
-                  value={bibleVerse}
-                  onChange={(e) => setBibleVerse(e.target.value)}
+                  value={verse}
+                  onChange={(e) => setVerse(e.target.value)}
                   placeholder='Ej: "Salmo 23", "Isaías 43:2", "Juan 3:16"...'
-                  className="rounded-xl border border-white/10 bg-black px-4 py-3"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                 />
-              </label>
+              </div>
 
-              <label className="grid gap-2">
-                <span className="text-sm text-white/70">Estilo</span>
+              <div>
+                <label className="text-sm text-white/70">Estilo</label>
                 <input
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-black px-4 py-3"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                 />
-              </label>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <label className="grid gap-2">
-                  <span className="text-sm text-white/70">Tonalidad</span>
+                <div>
+                  <label className="text-sm text-white/70">Tonalidad</label>
                   <select
                     value={key}
                     onChange={(e) => setKey(e.target.value)}
-                    className="rounded-xl border border-white/10 bg-black px-4 py-3"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                   >
                     {keys.map((k) => (
                       <option key={k} value={k}>
@@ -173,61 +225,65 @@ pour out Your power, Lord, I believe.
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
-                <label className="grid gap-2">
-                  <span className="text-sm text-white/70">Tempo (BPM)</span>
+                <div>
+                  <label className="text-sm text-white/70">Tempo (BPM)</label>
                   <input
                     type="number"
                     value={tempo}
                     onChange={(e) => setTempo(Number(e.target.value))}
-                    className="rounded-xl border border-white/10 bg-black px-4 py-3"
-                    min={50}
-                    max={160}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-3"
                   />
-                </label>
+                </div>
               </div>
 
               <button
                 onClick={onGenerate}
                 disabled={loading}
-                className="mt-2 rounded-xl bg-white px-6 py-3 font-semibold text-black disabled:opacity-60"
+                className="mt-3 w-full rounded-xl bg-white px-6 py-4 font-semibold text-black disabled:opacity-60"
               >
-                {loading ? "Generando..." : "✨ Generar canción"}
+                ✨ {loading ? "Generando..." : "Generar canción"}
               </button>
 
-              <p className="text-xs text-white/50">
-                “Consejo: escribe un versículo y un tema claro para que la canción salga más bíblica y congregacional.”
+              {/* ✅ Cambiado de NOTA a CONSEJO */}
+              <p className="text-sm text-white/60">
+                <b>Consejo:</b> usa un tema claro (ej. “Restauración”) y un versículo exacto
+                (ej. “Juan 3:16”) para que la letra quede más ungida y coherente.
+              </p>
+
+              <p className="text-xs text-white/40">
+                La IA se genera por servidor (API Route), tu key NO se expone en el navegador.
               </p>
             </div>
           </div>
 
-          {/* RESULT */}
+          {/* Resultado */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">📄 Resultado</h2>
+            <h2 className="text-xl font-semibold">📄 Resultado</h2>
 
             {!result ? (
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-6 text-white/60">
+              <p className="mt-6 text-white/60">
                 Aquí aparecerá la canción generada.
-              </div>
+              </p>
             ) : (
-              <div className="mt-4 grid gap-4">
+              <div className="mt-6 grid gap-4">
                 <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                  <div className="text-sm text-white/60">Título</div>
-                  <div className="text-xl font-bold">{result.title}</div>
+                  <div className="text-xs text-white/50">Título</div>
+                  <div className="text-lg font-semibold">{result.title}</div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                    <div className="text-sm text-white/60">Tono</div>
+                    <div className="text-xs text-white/50">Tono</div>
                     <div className="text-lg font-semibold">{result.key}</div>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                    <div className="text-sm text-white/60">Tempo</div>
+                    <div className="text-xs text-white/50">Tempo</div>
                     <div className="text-lg font-semibold">{result.tempo}</div>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                    <div className="text-sm text-white/60">Compás</div>
+                    <div className="text-xs text-white/50">Compás</div>
                     <div className="text-lg font-semibold">
                       {result.timeSignature}
                     </div>
@@ -235,11 +291,11 @@ pour out Your power, Lord, I believe.
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                  <div className="text-sm text-white/60">Acordes sugeridos</div>
+                  <div className="text-xs text-white/50">Acordes sugeridos</div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {result.chords.map((c) => (
+                    {result.chords.map((c: string, idx: number) => (
                       <span
-                        key={c}
+                        key={`${c}-${idx}`}
                         className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm"
                       >
                         {c}
@@ -249,7 +305,7 @@ pour out Your power, Lord, I believe.
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-black/40 p-4">
-                  <div className="text-sm text-white/60">Letra</div>
+                  <div className="text-xs text-white/50">Letra</div>
                   <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/80">
                     {result.lyrics}
                   </pre>
