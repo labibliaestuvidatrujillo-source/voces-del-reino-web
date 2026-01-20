@@ -369,11 +369,25 @@ const chordToNotes = (chord: string): string[] => {
                     onChange={(e) => setKey(e.target.value as any)}
                     className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 outline-none focus:border-white/25"
                   >
-                    {KEYS.map((k) => (
-                      <option key={k} value={k}>
-                        {k}
-                      </option>
-                    ))}
+                    {[
+  "C",
+  "Db",
+  "D",
+  "Eb",
+  "E",
+  "F",
+  "Gb",
+  "G",
+  "Ab",
+  "A",
+  "Bb",
+  "B",
+].map((k) => (
+  <option key={k} value={k}>
+    {k}
+  </option>
+))}
+
                   </select>
                 </FieldDark>
 
