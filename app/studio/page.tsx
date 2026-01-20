@@ -222,7 +222,7 @@ export default function StudioPage() {
               <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
                 ⚙️
               </div>
-              <h2 className="text-xl md:text-2xl font-bold">Configuración</h2>
+              <h2 className="text-xl md:text-2xl font-bold">producción</h2>
             </div>
 
             <div className="space-y-4">
@@ -369,12 +369,21 @@ export default function StudioPage() {
           {/* Result + Historial */}
           <div className="space-y-6">
             <div className="rounded-3xl p-5 md:p-6 bg-white/5 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
-                  📄
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold">Resultado</h2>
-              </div>
+              <div className="mb-5">
+  <div className="flex items-center gap-2">
+    <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 grid place-items-center text-sm">
+      ⚙️
+    </div>
+    <h2 className="text-lg md:text-xl font-extrabold tracking-tight text-white">
+  Producción
+</h2>
+
+  </div>
+  <div className="text-xs text-white/50 mt-1">
+    Configura tonalidad, modo, compás y estilo.
+  </div>
+</div>
+
 
               {!result ? (
                 <div className="text-white/60">
