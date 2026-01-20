@@ -11,6 +11,7 @@ type Body = {
   style?: string;
   key?: string; // tonalidad
   tempo?: number;
+  previousLyrics?: string[];
 };
 
 export async function POST(req: Request) {
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as Body;
+const previousLyrics: string[] = body.previousLyrics ?? [];
 
     const language = body.language ?? "es";
     const topic = (body.topic ?? "").trim();
@@ -80,6 +82,11 @@ REQUIREMENTS:
 - Biblical, uplifting, natural language.
 - Provide suggested chords per section.
 - Use modern chord symbols: D, G, A, Bm, F#m, Em, etc.
+- The title MUST be unique and match the user's topic/prompt (do NOT reuse generic titles).
+- The lyrics MUST be 100% original and MUST NOT repeat any phrases from previous songs.
+
+PREVIOUS LYRICS (DO NOT REPEAT):
+${previousLyrics?.length ? previousLyrics.join("\n---\n") : "NONE"}
 
 Reply ONLY in JSON with this exact format:
 {

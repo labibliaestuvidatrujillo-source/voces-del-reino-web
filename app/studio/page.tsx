@@ -120,15 +120,16 @@ export default function StudioPage() {
     setLoading(true);
     setError(null);
 
-    const payload: GeneratePayload = {
-      title,
-      bpm,
-      key,
-      mode,
-      minorType: mode === "minor" ? minorType : undefined,
-      timeSignature,
-      prompt,
-    };
+    const payload = {
+  title,
+  prompt,
+  key,
+  mode,
+  minorType,
+  bpm,
+  timeSignature,
+};
+
 
     try {
       const res = await fetch("/api/generate", {
@@ -553,7 +554,7 @@ const blob = new Blob([u8.buffer], { type: "audio/midi" })
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <InfoDark
                       label="Título"
-                      value={result?.title || title || "-"}
+                      value={title || result?.title || "-"}
                     />
                     <InfoDark
                       label="Tonalidad"
