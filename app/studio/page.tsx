@@ -212,39 +212,49 @@ const downloadMidi = async () => {
 
   const baseOctave = 4
 
-  const chordToNotes = (chord: string): string[] => {
-    // súper simple: mayor / menor (triadas)
-    // Ej: "D" -> D F# A
-    // Ej: "Bm" -> B D F#
-    const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
-    if (!m) return []
+const chordToNotes = (chord: string): string[] => {
+  const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
+  if (!m) return []
 
-    const root = `${m[1]}${m[2] || ""}`
-    const isMinor = Boolean(m[3])
+  const rawRoot = `${m[1]}${m[2] || ""}`
+  const isMinor = Boolean(m[3])
 
-    // triadas básicas
-    const map: Record<string, { maj: string[]; min: string[] }> = {
-      C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
-      "C#": { maj: ["C#", "F", "G#"], min: ["C#", "E", "G#"] },
-      Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
-      D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
-      Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
-      E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
-      F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
-      "F#": { maj: ["F#", "A#", "C#"], min: ["F#", "A", "C#"] },
-      Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
-      G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
-      Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
-      A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
-      Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
-      B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
-    }
-
-    const triad = map[root]
-    if (!triad) return []
-    const notes = isMinor ? triad.min : triad.maj
-    return notes.map((n) => `${n}${baseOctave}`)
+  const sharpToFlat: Record<string, string> = {
+    "C#": "Db",
+    "D#": "Eb",
+    "F#": "Gb",
+    "G#": "Ab",
+    "A#": "Bb",
   }
+
+  const root = sharpToFlat[rawRoot] ?? rawRoot
+
+  const map: Record<string, { maj: string[]; min: string[] }> = {
+    C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
+    Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
+    D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
+    Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
+    E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
+    F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
+    Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
+    G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
+    Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
+    A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
+    Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
+    B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
+  }
+
+  const triad = map[root]
+  if (!triad) return []
+
+  const notes = isMinor ? triad.min : triad.maj
+  return notes.map((n) => `${n}${baseOctave}`)
+
+  // ✅ seguridad extra
+  // return []
+}
+
+
 
   let t = 0
 
