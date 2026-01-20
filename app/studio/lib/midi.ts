@@ -1,107 +1,131 @@
-import MidiWriter from "midi-writer-js";
+import { Midi } from "@tonejs/midi";
 
-function noteNameToMidi(note: string, octave: number) {
-  const map: Record<string, number> = {
-    C: 0,
-    "C#": 1,
-    Db: 1,
-    D: 2,
-    "D#": 3,
-    Eb: 3,
-    E: 4,
-    F: 5,
-    "F#": 6,
-    Gb: 6,
-    G: 7,
-    "G#": 8,
-    Ab: 8,
-    A: 9,
-    "A#": 10,
-    Bb: 10,
-    B: 11,
-  };
+type MidiInput = {
+  title?: string;
+  tempo?: number;
+  timeSignature?: string; // "4/4"
+  chords?: string[];
+};
 
-  const semitone = map[note];
-  if (semitone === undefined) return null;
-  return 12 * (octave + 1) + semitone; // C4=60
+const sharpToFlat: Record<string, string> = {
+  "C#": "Db",
+  "D#": "Eb",
+  "F#": "Gb",
+  "G#": "Ab",
+  "A#": "Bb",
+};
+
+const triads: Record<string, { maj: string[]; min: string[] }> = {
+  C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
+  Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
+  D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
+  Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
+  E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
+  F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
+  Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
+  G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
+  Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
+  A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
+  Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
+  B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
+};
+
+function normalizeChordRoot(root: string) {
+  return sharpToFlat[root] ?? root;
 }
 
-function normalizeChord(raw: string) {
-  let s = raw.trim();
-  if (!s) return null;
-
-  s = s.replaceAll("(", "").replaceAll(")", "");
-  if (s.includes("/")) s = s.split("/")[0];
-  s = s.replace(/\s+/g, "");
-
-  const m = s.match(/^([A-G])(#|b)?(.*)$/);
+function parseChord(chord: string): { root: string; isMinor: boolean } | null {
+  // Soporta: D, Bm, F#, Bb, C#m etc (por ahora triadas simples)
+  const m = chord.trim().match(/^([A-G])([b#]?)(m)?/);
   if (!m) return null;
 
-  const root = m[1] + (m[2] || "");
-  const rest = (m[3] || "").toLowerCase();
+  const rawRoot = `${m[1]}${m[2] || ""}`;
+  const root = normalizeChordRoot(rawRoot);
+  const isMinor = Boolean(m[3]);
 
-  return { root, rest };
+  return { root, isMinor };
 }
 
-function chordToNotes(root: string, rest: string, octave = 4) {
-  const rootMidi = noteNameToMidi(root, octave);
-  if (rootMidi === null) return null;
+function chordToTriadNotes(chord: string, octave: number): string[] {
+  const parsed = parseChord(chord);
+  if (!parsed) return [];
 
-  let intervals = [0, 4, 7]; // major triad
+  const triad = triads[parsed.root];
+  if (!triad) return [];
 
-  if (rest.startsWith("m") && !rest.startsWith("maj")) intervals = [0, 3, 7];
-  if (rest.includes("dim") || rest.includes("°")) intervals = [0, 3, 6];
-
-  const isMaj7 = rest.includes("maj7");
-  const is7 = rest.includes("7");
-  const isM7 =
-    rest.startsWith("m7") || (rest.startsWith("m") && rest.includes("7"));
-
-  if (isMaj7) intervals = [...intervals, 11];
-  else if (isM7) intervals = [...intervals, 10];
-  else if (is7) intervals = [...intervals, 10];
-
-  return intervals.map((i) => rootMidi + i);
+  const notes = parsed.isMinor ? triad.min : triad.maj;
+  return notes.map((n) => `${n}${octave}`);
 }
 
-export function chordsToMidiBytes(
-  chords: string[],
-  bpm: number,
-  timeSignature: "4/4" | "3/4" | "6/8"
-) {
-  const track = new MidiWriter.Track();
-  track.setTempo(Math.max(40, Math.min(240, bpm)));
+function chordToBassNote(chord: string, octave: number): string | null {
+  const parsed = parseChord(chord);
+  if (!parsed) return null;
+  return `${parsed.root}${octave}`;
+}
 
-  const [nn, dd] = timeSignature.split("/");
-  track.addEvent(
-  new MidiWriter.TimeSignatureEvent(Number(nn), Number(dd), 24, 8)
-);
+export function chordsToMidiBytes2Tracks(input: MidiInput): Uint8Array {
+  const tempo = input.tempo ?? 74;
+  const timeSig = input.timeSignature ?? "4/4";
+  const beatsPerBar = parseInt(String(timeSig).split("/")[0] || "4", 10) || 4;
 
+  const midi = new Midi();
+  midi.header.setTempo(tempo);
 
-  const duration = timeSignature === "6/8" ? "2" : "1";
+  // ✅ TRACK 1: Piano Chords
+  const piano = midi.addTrack();
+  piano.name = "Piano Chords";
 
-  for (const line of chords) {
-    const pieces = String(line)
+  // ✅ TRACK 2: Bass Root
+  const bass = midi.addTrack();
+  bass.name = "Bass";
+
+  const secondsPerBeat = 60 / tempo;
+  const barDuration = beatsPerBar * secondsPerBeat;
+
+  const chordsLines = input.chords ?? [];
+  let t = 0;
+
+  // Octavas
+  const pianoOctave = 4;
+  const bassOctave = 2;
+
+  for (const line of chordsLines) {
+    // Ej: "D - A - Bm - G"
+    const parts = line
       .split("-")
-      .map((x) => x.trim())
+      .map((s) => s.trim())
       .filter(Boolean);
 
-    const chord = pieces[0] || "";
-    const parsed = normalizeChord(chord);
-    if (!parsed) continue;
+    if (parts.length === 0) continue;
 
-    const notes = chordToNotes(parsed.root, parsed.rest, 4);
-    if (!notes) continue;
+    const chordDuration = barDuration / parts.length;
 
-    track.addEvent(
-      new MidiWriter.NoteEvent({
-        pitch: notes,
-        duration,
-        velocity: 75,
-      })
-    );
+    for (const chord of parts) {
+      // Piano: triada completa
+      const notes = chordToTriadNotes(chord, pianoOctave);
+      for (const note of notes) {
+        piano.addNote({
+          name: note,
+          time: t,
+          duration: chordDuration * 0.95,
+          velocity: 0.75,
+        });
+      }
+
+      // Bass: solo root
+      const root = chordToBassNote(chord, bassOctave);
+      if (root) {
+        bass.addNote({
+          name: root,
+          time: t,
+          duration: chordDuration * 0.98,
+          velocity: 0.85,
+        });
+      }
+
+      t += chordDuration;
+    }
   }
 
-  const writer = new MidiWriter.Writer([track]);
-  return writer.buildFile();
+  return midi.toArray();
 }
