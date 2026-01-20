@@ -1,6 +1,5 @@
 "use client";
 
-import { chordsToMidiBytes } from "./lib/midi";
 import React, { useEffect, useMemo, useState } from "react";
 import HistoryPanel from "./components/HistoryPanel";
 import {
@@ -12,6 +11,7 @@ import {
   removeFromHistory,
   StudioSettings,
 } from "./lib/history";
+import { chordsToMidiBytes } from "./lib/midi";
 
 type Mode = "major" | "minor";
 type MinorType = "natural" | "harmonic" | "melodic";
@@ -190,6 +190,14 @@ export default function StudioPage() {
     const next = clearHistory();
     setHistory(next);
   }
+<button
+  type="button"
+  onClick={downloadMidi}
+  disabled={!result}
+  className="w-full px-4 py-3 rounded-2xl border border-white/10 bg-black/40 text-white font-bold hover:border-white/20 transition disabled:opacity-40"
+>
+  Exportar MIDI 🎹
+</button>
 
   return (
     <div className="min-h-screen bg-black text-white">
