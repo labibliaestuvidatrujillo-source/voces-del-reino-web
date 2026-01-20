@@ -1,6 +1,16 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import HistoryPanel from "./components/HistoryPanel";
+import {
+  addToHistory,
+  clearHistory,
+  HistoryItem,
+  loadHistory,
+  makeId,
+  removeFromHistory,
+  StudioSettings,
+} from "./lib/history";
 
 type Mode = "major" | "minor";
 type MinorType = "natural" | "harmonic" | "melodic";
@@ -17,6 +27,7 @@ type GeneratePayload = {
 };
 
 const KEYS = ["C", "D", "E", "F", "G", "A", "B"] as const;
+const LS_LAST_RESULT = "voces-last-result"; // ✅ no se borra al refrescar
 
 export default function StudioPage() {
   const [title, setTitle] = useState("Voces del Reino");
@@ -34,24 +45,30 @@ export default function StudioPage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // ---------- LocalStorage: cargar ----------
+  // ✅ Historial
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // ---------- LocalStorage: cargar settings + último resultado ----------
   useEffect(() => {
     try {
       const raw = localStorage.getItem("voces-studio-settings");
-      if (!raw) return;
-      const saved = JSON.parse(raw);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.title) setTitle(saved.title);
+        if (saved?.key) setKey(saved.key);
+        if (saved?.mode) setMode(saved.mode);
+        if (saved?.minorType) setMinorType(saved.minorType);
+        if (saved?.bpm) setBpm(saved.bpm);
+        if (saved?.timeSignature) setTimeSignature(saved.timeSignature);
+        if (saved?.prompt) setPrompt(saved.prompt);
+      }
 
-      if (saved?.title) setTitle(saved.title);
-      if (saved?.key) setKey(saved.key);
-      if (saved?.mode) setMode(saved.mode);
-      if (saved?.minorType) setMinorType(saved.minorType);
-      if (saved?.bpm) setBpm(saved.bpm);
-      if (saved?.timeSignature) setTimeSignature(saved.timeSignature);
-      if (saved?.prompt) setPrompt(saved.prompt);
+      const last = localStorage.getItem(LS_LAST_RESULT);
+      if (last) setResult(JSON.parse(last));
     } catch {}
   }, []);
 
-  // ---------- LocalStorage: guardar ----------
+  // ---------- LocalStorage: guardar settings ----------
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -69,21 +86,37 @@ export default function StudioPage() {
     } catch {}
   }, [title, key, mode, minorType, bpm, timeSignature, prompt]);
 
+  // ---------- LocalStorage: cargar historial ----------
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
   const tonalidadTexto = useMemo(() => {
     if (mode === "major") return `${key} Mayor`;
     const t =
       minorType === "natural"
         ? "Menor natural"
         : minorType === "harmonic"
-          ? "Menor armónica"
-          : "Menor melódica";
+        ? "Menor armónica"
+        : "Menor melódica";
     return `${key} ${t}`;
   }, [key, mode, minorType]);
+
+  function getCurrentSettings(): StudioSettings {
+    return {
+      title,
+      key,
+      mode,
+      minorType: mode === "minor" ? minorType : undefined,
+      bpm,
+      timeSignature,
+      prompt,
+    };
+  }
 
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-    setResult(null);
 
     const payload: GeneratePayload = {
       title,
@@ -109,11 +142,52 @@ export default function StudioPage() {
 
       const data = await res.json();
       setResult(data);
+
+      // ✅ guardar el último resultado (para que no se borre al refrescar)
+      try {
+        localStorage.setItem(LS_LAST_RESULT, JSON.stringify(data));
+      } catch {}
+
+      // ✅ Guardar automáticamente en historial
+      const item: HistoryItem = {
+        id: makeId(),
+        createdAt: Date.now(),
+        settings: getCurrentSettings(),
+        result: data,
+      };
+      const next = addToHistory(item, 25);
+      setHistory(next);
     } catch (e: any) {
       setError(e?.message || "Ocurrió un error");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleLoadFromHistory(item: HistoryItem) {
+    const s = item.settings;
+    setTitle(s.title || "Voces del Reino");
+    setKey((s.key as any) || "C");
+    setMode(s.mode);
+    setMinorType((s.minorType as any) || "natural");
+    setBpm(s.bpm || 90);
+    setTimeSignature((s.timeSignature as any) || "4/4");
+    setPrompt(s.prompt || "");
+    setResult(item.result);
+
+    try {
+      localStorage.setItem(LS_LAST_RESULT, JSON.stringify(item.result));
+    } catch {}
+  }
+
+  function handleDeleteHistory(id: string) {
+    const next = removeFromHistory(id);
+    setHistory(next);
+  }
+
+  function handleClearHistory() {
+    const next = clearHistory();
+    setHistory(next);
   }
 
   return (
@@ -161,7 +235,7 @@ export default function StudioPage() {
                 />
               </FieldDark>
 
-              {/* ✅ FIX CELULAR DEFINITIVO: Siempre vertical */}
+              {/* ✅ móvil definitivo */}
               <FieldDark label="Modo">
                 <div className="flex flex-col gap-2">
                   <ModeButtonDark
@@ -179,7 +253,6 @@ export default function StudioPage() {
                   </ModeButtonDark>
                 </div>
 
-                {/* texto guía para móvil */}
                 <div className="text-xs text-white/40 mt-2">
                   Tip: toca “Menor” para activar “Tipo de menor”.
                 </div>
@@ -227,7 +300,6 @@ export default function StudioPage() {
                   </select>
                 </FieldDark>
 
-                {/* ✅ Tipo de menor aparece cuando mode === minor */}
                 {mode === "minor" ? (
                   <FieldDark label="Tipo de menor">
                     <select
@@ -283,7 +355,7 @@ export default function StudioPage() {
                 disabled={loading}
                 className="w-full mt-2 rounded-2xl px-5 py-4 font-bold border border-white/10 bg-white text-black hover:bg-white/90 transition disabled:opacity-60"
               >
-                {loading ? "Generando..." : "Generar 🎶"}
+                {loading ? "Generando..." : "Generar 🎶 (Guardar en historial)"}
               </button>
 
               {error && (
@@ -294,62 +366,79 @@ export default function StudioPage() {
             </div>
           </div>
 
-          {/* Result */}
-          <div className="rounded-3xl p-5 md:p-6 bg-white/5 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
-                📄
+          {/* Result + Historial */}
+          <div className="space-y-6">
+            <div className="rounded-3xl p-5 md:p-6 bg-white/5 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
+                  📄
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold">Resultado</h2>
               </div>
-              <h2 className="text-xl md:text-2xl font-bold">Resultado</h2>
+
+              {!result ? (
+                <div className="text-white/60">
+                  Aquí aparecerá la canción generada.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <InfoDark
+                      label="Título"
+                      value={result?.title || title || "-"}
+                    />
+                    <InfoDark
+                      label="Tonalidad"
+                      value={
+                        result?.key
+                          ? `${result.key} ${
+                              mode === "major" ? "Mayor" : "Menor"
+                            }`
+                          : tonalidadTexto
+                      }
+                    />
+                    <InfoDark label="BPM" value={String(result?.tempo ?? bpm)} />
+                    <InfoDark
+                      label="Compás"
+                      value={result?.timeSignature || timeSignature}
+                    />
+                  </div>
+
+                  <BlockDark title="Acordes">
+                    <div className="text-sm font-mono whitespace-pre-wrap leading-6 text-white/90">
+                      {(result?.chords || [])
+                        .map((c: string) =>
+                          String(c).replaceAll(" - ", "  |  ")
+                        )
+                        .join("\n")}
+                    </div>
+                  </BlockDark>
+
+                  <BlockDark title="Letra">
+                    <div className="text-sm whitespace-pre-wrap leading-6 text-white/90">
+                      {String(result?.lyrics || "").replaceAll("\\n", "\n")}
+                    </div>
+                  </BlockDark>
+
+                  <details className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-white/80">
+                      Ver JSON (Debug)
+                    </summary>
+                    <pre className="text-xs overflow-auto bg-black/70 border border-white/10 text-white p-4 rounded-2xl mt-3">
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
             </div>
 
-            {!result ? (
-              <div className="text-white/60">
-                Aquí aparecerá la canción generada.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <InfoDark label="Título" value={result?.title || title || "-"} />
-                  <InfoDark
-                    label="Tonalidad"
-                    value={
-                      result?.key
-                        ? `${result.key} ${mode === "major" ? "Mayor" : "Menor"}`
-                        : tonalidadTexto
-                    }
-                  />
-                  <InfoDark label="BPM" value={String(result?.tempo ?? bpm)} />
-                  <InfoDark
-                    label="Compás"
-                    value={result?.timeSignature || timeSignature}
-                  />
-                </div>
-
-                <BlockDark title="Acordes">
-                  <div className="text-sm font-mono whitespace-pre-wrap leading-6 text-white/90">
-                    {(result?.chords || [])
-                      .map((c: string) => String(c).replaceAll(" - ", "  |  "))
-                      .join("\n")}
-                  </div>
-                </BlockDark>
-
-                <BlockDark title="Letra">
-                  <div className="text-sm whitespace-pre-wrap leading-6 text-white/90">
-                    {String(result?.lyrics || "").replaceAll("\\n", "\n")}
-                  </div>
-                </BlockDark>
-
-                <details className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <summary className="cursor-pointer text-sm font-semibold text-white/80">
-                    Ver JSON (Debug)
-                  </summary>
-                  <pre className="text-xs overflow-auto bg-black/70 border border-white/10 text-white p-4 rounded-2xl mt-3">
-                    {JSON.stringify(result, null, 2)}
-                  </pre>
-                </details>
-              </div>
-            )}
+            {/* ✅ HISTORIAL */}
+            <HistoryPanel
+              history={history}
+              onLoad={handleLoadFromHistory}
+              onDelete={handleDeleteHistory}
+              onClear={handleClearHistory}
+            />
           </div>
         </div>
       </div>
@@ -359,7 +448,13 @@ export default function StudioPage() {
 
 /* ---------------- UI Components (Dark) ---------------- */
 
-function FieldDark({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldDark({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
       <div className="text-sm text-white/70">{label}</div>
@@ -396,7 +491,13 @@ function ModeButtonDark({
   );
 }
 
-function PresetButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function PresetButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -417,7 +518,13 @@ function InfoDark({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BlockDark({ title, children }: { title: string; children: React.ReactNode }) {
+function BlockDark({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <div className="font-semibold text-white/90 mb-2">{title}</div>
