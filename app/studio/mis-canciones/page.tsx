@@ -209,10 +209,10 @@ export default function StudioPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* producción */}
+          {/* Producción */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-xl font-semibold mb-5 flex items-center gap-2">
-              ⚙️ producción
+              ⚙️ Producción
             </h2>
 
             <label className="block text-sm text-white/70">Idioma</label>

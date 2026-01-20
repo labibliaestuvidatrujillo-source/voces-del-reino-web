@@ -222,7 +222,7 @@ export default function StudioPage() {
               <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
                 ⚙️
               </div>
-              <h2 className="text-xl md:text-2xl font-bold">producción</h2>
+              <h2 className="text-xl md:text-2xl font-bold">Producción</h2>
             </div>
 
             <div className="space-y-4">
