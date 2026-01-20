@@ -11,7 +11,7 @@ import {
   removeFromHistory,
   StudioSettings,
 } from "./lib/history";
-import { chordsToMidiBytes } from "./lib/midi";
+import { chordsToMidiBytes2Tracks } from "./lib/midi";
 import { Midi } from "@tonejs/midi";
 
 type Mode = "major" | "minor";
@@ -194,14 +194,24 @@ export default function StudioPage() {
 
   
 
+/* const downloadMidi_old = async () => {
+} 
+*/
+
+  
 const downloadMidi = async () => {
   if (!result) return
 
   const midi = new Midi()
   midi.header.setTempo(result.tempo ?? 74)
 
-  const track = midi.addTrack()
-  track.name = "Chords"
+  // ✅ Track 1: Piano (acordes)
+  const piano = midi.addTrack()
+  piano.name = "Piano Chords"
+
+  // ✅ Track 2: Bass (root)
+  const bass = midi.addTrack()
+  bass.name = "Bass"
 
   const chords: string[] = result.chords ?? []
   const bpm = result.tempo ?? 74
@@ -210,79 +220,110 @@ const downloadMidi = async () => {
   const secondsPerBeat = 60 / bpm
   const barDuration = beatsPerBar * secondsPerBeat
 
-  const baseOctave = 4
+  const pianoOctave = 4
+  const bassOctave = 2
 
-const chordToNotes = (chord: string): string[] => {
-  const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
-  if (!m) return []
+  // Root note para bajo
+  const chordToBassRoot = (chord: string): string | null => {
+    const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
+    if (!m) return null
 
-  const rawRoot = `${m[1]}${m[2] || ""}`
-  const isMinor = Boolean(m[3])
+    const rawRoot = `${m[1]}${m[2] || ""}`
 
-  const sharpToFlat: Record<string, string> = {
-    "C#": "Db",
-    "D#": "Eb",
-    "F#": "Gb",
-    "G#": "Ab",
-    "A#": "Bb",
+    const sharpToFlat: Record<string, string> = {
+      "C#": "Db",
+      "D#": "Eb",
+      "F#": "Gb",
+      "G#": "Ab",
+      "A#": "Bb",
+    }
+
+    const root = sharpToFlat[rawRoot] ?? rawRoot
+    return `${root}${bassOctave}`
   }
 
-  const root = sharpToFlat[rawRoot] ?? rawRoot
-
-  const map: Record<string, { maj: string[]; min: string[] }> = {
-    C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
-    Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
-    D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
-    Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
-    E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
-    F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
-    Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
-    G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
-    Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
-    A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
-    Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
-    B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
-  }
-
-  const triad = map[root]
-  if (!triad) return []
-
-  const notes = isMinor ? triad.min : triad.maj
-  return notes.map((n) => `${n}${baseOctave}`)
-
-  // ✅ seguridad extra
-  // return []
-}
-
-
-
+  // ✅ Usa tu chordToNotes actual para el piano
   let t = 0
+  const chordToNotes = (chord: string): string[] => {
+    const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
+    if (!m) return []
+
+    const rawRoot = `${m[1]}${m[2] || ""}`
+    const isMinor = Boolean(m[3])
+
+    const sharpToFlat: Record<string, string> = {
+      "C#": "Db",
+      "D#": "Eb",
+      "F#": "Gb",
+      "G#": "Ab",
+      "A#": "Bb",
+    }
+
+    const root = sharpToFlat[rawRoot] ?? rawRoot
+
+    const map: Record<string, { maj: string[]; min: string[] }> = {
+      C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
+      Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
+      D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
+      Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
+      E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
+      F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
+      Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
+      G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
+      Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
+      A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
+      Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
+      B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
+    }
+
+    const triad = map[root]
+    if (!triad) return []
+
+    const notes = isMinor ? triad.min : triad.maj
+    return notes.map((n) => `${n}4`)
+  }
 
   for (const line of chords) {
-    // Ej: "D - A - Bm - G"
     const parts = line.split("-").map((s) => s.trim()).filter(Boolean)
     if (parts.length === 0) continue
 
     const chordDuration = barDuration / parts.length
 
     for (const chord of parts) {
+      // Piano: triada
       const notes = chordToNotes(chord)
       for (const note of notes) {
-        track.addNote({
-          name: note,
+        // Asegura octava piano (4)
+        const noteWithOct = note.replace(/[0-9]+$/, `${pianoOctave}`)
+        piano.addNote({
+          name: noteWithOct,
           time: t,
           duration: chordDuration * 0.95,
-          velocity: 0.8,
+          velocity: 0.75,
         })
       }
+
+      // Bass: root note
+      const root = chordToBassRoot(chord)
+      if (root) {
+        bass.addNote({
+          name: root,
+          time: t,
+          duration: chordDuration * 0.98,
+          velocity: 0.85,
+        })
+      }
+
       t += chordDuration
     }
   }
 
   const bytes = midi.toArray()
-  const blob = new Blob([new Uint8Array(bytes)], { type: "audio/midi" })
-  const url = URL.createObjectURL(blob)
+const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as any)
+const blob = new Blob([u8.buffer], { type: "audio/midi" })
 
+
+  const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
   a.download = `${(result.title || "voces-del-reino").replaceAll(" ", "_")}.mid`
