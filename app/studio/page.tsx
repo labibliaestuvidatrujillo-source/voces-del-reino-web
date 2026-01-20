@@ -119,6 +119,8 @@ export default function StudioPage() {
   async function handleGenerate() {
     setLoading(true);
     setError(null);
+  const scriptureFocus =
+    prompt.match(/(tesalonicenses|salmo|juan|romanos|apocalipsis|mateo|marcos|lucas|hebreos|corintios|efesios|filipenses|colosenses|timoteo|tito|pedro|santiago|judas)\s*\d+:\d+(-\d+)?/i)?.[0] ?? null;
 
     const payload = {
   title,
@@ -128,6 +130,7 @@ export default function StudioPage() {
   minorType,
   bpm,
   timeSignature,
+  scriptureFocus,
 };
 
 
