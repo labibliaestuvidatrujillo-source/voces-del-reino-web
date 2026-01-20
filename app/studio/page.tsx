@@ -270,7 +270,7 @@ const downloadMidi = async () => {
   }
 
   const bytes = midi.toArray()
-  const blob = new Blob([bytes], { type: "audio/midi" })
+  const blob = new Blob([new Uint8Array(bytes)], { type: "audio/midi" })
   const url = URL.createObjectURL(blob)
 
   const a = document.createElement("a")
@@ -283,7 +283,6 @@ const downloadMidi = async () => {
   URL.revokeObjectURL(url)
 }
 
-}
 
   return (
     <div className="min-h-screen bg-black text-white">
