@@ -98,6 +98,42 @@ REQUIREMENTS (STRICT):
 - Use modern chord symbols: D, G, A, Bm, F#m, Em, etc.
 - The title MUST be unique and match the user's topic/prompt (do NOT reuse generic titles).
 - The lyrics MUST be 100% original and MUST NOT repeat any phrases from previous songs.
+STYLE & SPIRIT (VERY IMPORTANT):
+- Style must combine:
+  (1) Pentecostal congregational worship (simple, powerful, repeatable),
+  (2) Theological hymn depth (rich doctrine, reverent language),
+  (3) Adoration worship atmosphere (reverent, Holy Spirit, holiness).
+- The chorus MUST be easy to sing by the whole church (short, repetitive, memorable).
+- The verses MUST be doctrinally deep (like a hymn): Gospel, cross, grace, holiness, repentance, Christ-centered.
+- Include a worship/adoration bridge that elevates spiritually (example themes: "Santo", "Gloria", "Digno", "Cordero", "Rey").
+- Avoid overly poetic unclear metaphors; keep it biblical, direct, and usable in church.
+STRUCTURE (STRICT):
+- Verse 1: doctrinal, Scripture-based truth (hymn-like).
+- Pre-Chorus: lifts expectation and faith (pentecostal).
+- Chorus: congregational declaration to Jesus (repeatable).
+- Verse 2: continues doctrinal theme + practical faith.
+- Bridge: pure adoration (holiness, glory, surrender, Spirit).
+- Final Chorus: repeat with extra power, include a short worship tag.
+BIBLE REFERENCES (NO FAKE REFERENCES):
+- Include 2 to 4 Bible references that are REAL and widely used in worship.
+- Only use references from this allowed list:
+  Psalm 23:1, Psalm 27:1, Psalm 46:1, Psalm 91:1, Psalm 103:1-5,
+  Isaiah 6:3, Isaiah 40:31, Isaiah 53:5, Isaiah 54:10,
+  Matthew 11:28, Matthew 28:20,
+  John 1:29, John 3:16, John 4:23-24, John 14:6,
+  Romans 5:8, Romans 8:1, Romans 8:28,
+  2 Corinthians 5:17,
+  Galatians 2:20,
+  Ephesians 2:8-9, Ephesians 3:20,
+  Philippians 4:6-7, Philippians 4:13,
+  Colossians 1:13-14,
+  Hebrews 4:16, Hebrews 12:2,
+  Revelation 5:12, Revelation 19:6.
+- Do NOT invent Bible references outside that list.
+CHORUS POWER RULE:
+- The chorus MUST explicitly mention Jesus Christ (Jesús / Jesucristo / Señor Jesús).
+- The chorus MUST contain at least one of: "gracia", "cruz", "sangre", "salvación", "redención".
+
 
 
 PREVIOUS LYRICS (DO NOT REPEAT):
@@ -112,6 +148,7 @@ Reply ONLY in JSON with this exact format:
   "chords": ["...","..."],
   "lyrics": "..."
   "bibleReferences": ["...","..."]
+"worshipTags": ["...","...","..."]
 
 }
 `;
