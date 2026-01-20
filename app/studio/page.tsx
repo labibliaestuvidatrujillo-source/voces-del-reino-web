@@ -12,6 +12,7 @@ import {
   StudioSettings,
 } from "./lib/history";
 import { chordsToMidiBytes } from "./lib/midi";
+import { Midi } from "@tonejs/midi";
 
 type Mode = "major" | "minor";
 type MinorType = "natural" | "harmonic" | "melodic";
@@ -191,8 +192,97 @@ export default function StudioPage() {
     setHistory(next);
   }
 
-  const downloadMidi = () => {
-  alert("Exportar MIDI funcionando ✅ (falta conectar el .mid real)")
+  
+
+const downloadMidi = async () => {
+  if (!result) return
+
+  const midi = new Midi()
+  midi.header.setTempo(result.tempo ?? 74)
+
+  const track = midi.addTrack()
+  track.name = "Chords"
+
+  const chords: string[] = result.chords ?? []
+  const bpm = result.tempo ?? 74
+  const beatsPerBar = parseInt(String(result.timeSignature ?? "4/4").split("/")[0] || "4", 10)
+
+  const secondsPerBeat = 60 / bpm
+  const barDuration = beatsPerBar * secondsPerBeat
+
+  const baseOctave = 4
+
+  const chordToNotes = (chord: string): string[] => {
+    // súper simple: mayor / menor (triadas)
+    // Ej: "D" -> D F# A
+    // Ej: "Bm" -> B D F#
+    const m = chord.trim().match(/^([A-G])([b#]?)(m)?/)
+    if (!m) return []
+
+    const root = `${m[1]}${m[2] || ""}`
+    const isMinor = Boolean(m[3])
+
+    // triadas básicas
+    const map: Record<string, { maj: string[]; min: string[] }> = {
+      C: { maj: ["C", "E", "G"], min: ["C", "Eb", "G"] },
+      "C#": { maj: ["C#", "F", "G#"], min: ["C#", "E", "G#"] },
+      Db: { maj: ["Db", "F", "Ab"], min: ["Db", "E", "Ab"] },
+      D: { maj: ["D", "F#", "A"], min: ["D", "F", "A"] },
+      Eb: { maj: ["Eb", "G", "Bb"], min: ["Eb", "Gb", "Bb"] },
+      E: { maj: ["E", "G#", "B"], min: ["E", "G", "B"] },
+      F: { maj: ["F", "A", "C"], min: ["F", "Ab", "C"] },
+      "F#": { maj: ["F#", "A#", "C#"], min: ["F#", "A", "C#"] },
+      Gb: { maj: ["Gb", "Bb", "Db"], min: ["Gb", "A", "Db"] },
+      G: { maj: ["G", "B", "D"], min: ["G", "Bb", "D"] },
+      Ab: { maj: ["Ab", "C", "Eb"], min: ["Ab", "B", "Eb"] },
+      A: { maj: ["A", "C#", "E"], min: ["A", "C", "E"] },
+      Bb: { maj: ["Bb", "D", "F"], min: ["Bb", "Db", "F"] },
+      B: { maj: ["B", "D#", "F#"], min: ["B", "D", "F#"] },
+    }
+
+    const triad = map[root]
+    if (!triad) return []
+    const notes = isMinor ? triad.min : triad.maj
+    return notes.map((n) => `${n}${baseOctave}`)
+  }
+
+  let t = 0
+
+  for (const line of chords) {
+    // Ej: "D - A - Bm - G"
+    const parts = line.split("-").map((s) => s.trim()).filter(Boolean)
+    if (parts.length === 0) continue
+
+    const chordDuration = barDuration / parts.length
+
+    for (const chord of parts) {
+      const notes = chordToNotes(chord)
+      for (const note of notes) {
+        track.addNote({
+          name: note,
+          time: t,
+          duration: chordDuration * 0.95,
+          velocity: 0.8,
+        })
+      }
+      t += chordDuration
+    }
+  }
+
+  const bytes = midi.toArray()
+  const blob = new Blob([bytes], { type: "audio/midi" })
+  const url = URL.createObjectURL(blob)
+
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${(result.title || "voces-del-reino").replaceAll(" ", "_")}.mid`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+
+  URL.revokeObjectURL(url)
+}
+
 }
 
   return (
@@ -441,7 +531,8 @@ export default function StudioPage() {
                     <pre className="text-xs overflow-auto bg-black/70 border border-white/10 text-white p-4 rounded-2xl mt-3">
                       {JSON.stringify(result, null, 2)}
                     </pre>
-                  </details><div className="pt-2 space-y-3">
+                  </details>
+                  <div className="pt-2 space-y-3">
   <button
     type="button"
     onClick={downloadMidi}
