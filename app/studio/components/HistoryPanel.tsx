@@ -79,12 +79,14 @@ export default function HistoryPanel({
                                             Cargar
                                         </button>
 
-                                        type="button"
-                                        onClick={() => onDelete(item.id)}
-                                        className="px-3 py-2 rounded-2xl border border-white/10 bg-black/40 text-white/80 hover:text-white hover:border-white/20 transition text-xs"
-                    >
-                                        Eliminar
-                                    </button>
+                                        <button
+  type="button"
+  onClick={() => onDelete(item.id)}
+  className="px-3 py-2 rounded-2xl border border-white/10 bg-black/40 text-white/80 hover:text-white hover:border-white/20 transition text-xs"
+>
+  Eliminar
+</button>
+
                                 </div>
                             </div>
 

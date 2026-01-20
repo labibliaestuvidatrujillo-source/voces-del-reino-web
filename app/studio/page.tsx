@@ -1,5 +1,6 @@
 "use client";
 
+import { chordsToMidiBytes } from "./lib/midi";
 import React, { useEffect, useMemo, useState } from "react";
 import HistoryPanel from "./components/HistoryPanel";
 import {
@@ -11,7 +12,6 @@ import {
   removeFromHistory,
   StudioSettings,
 } from "./lib/history";
-import { chordsToMidiBytes } from "./lib/midi";
 
 type Mode = "major" | "minor";
 type MinorType = "natural" | "harmonic" | "melodic";
@@ -128,41 +128,6 @@ export default function StudioPage() {
       timeSignature,
       prompt,
     };
-function downloadMidi() {
-  if (!result?.chords || !Array.isArray(result.chords)) {
-    alert("Primero genera una canción para poder exportar MIDI.");
-    return;
-  }
-
-  try {
-    const bytes = chordsToMidiBytes(
-      result.chords,
-      Number(result.tempo ?? bpm),
-      timeSignature
-    );
-
-    const blob = new Blob([bytes], { type: "audio/midi" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    const safeTitle = String(result?.title || title || "voces-del-reino")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    a.href = url;
-    a.download = `${safeTitle || "voces-del-reino"}.mid`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-  } catch (e) {
-    console.error(e);
-    alert("No se pudo exportar MIDI. Revisa consola.");
-  }
-}
-
 
     try {
       const res = await fetch("/api/generate", {
@@ -258,7 +223,7 @@ function downloadMidi() {
               <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center">
                 ⚙️
               </div>
-              <h2 className="text-xl md:text-2xl font-bold">Producción</h2>
+              <h2 className="text-xl md:text-2xl font-bold">producción</h2>
             </div>
 
             <div className="space-y-4">
@@ -427,15 +392,6 @@ function downloadMidi() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <button
-  type="button"
-  onClick={downloadMidi}
-  disabled={!result}
-  className="w-full px-4 py-3 rounded-2xl border border-white/10 bg-black/40 text-white font-bold hover:border-white/20 transition disabled:opacity-40"
->
-  Exportar MIDI 🎹
-</button>
-
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <InfoDark
                       label="Título"

@@ -73,7 +73,10 @@ export function chordsToMidiBytes(
   track.setTempo(Math.max(40, Math.min(240, bpm)));
 
   const [nn, dd] = timeSignature.split("/");
-  track.addEvent(new MidiWriter.TimeSignatureEvent(Number(nn), Number(dd)));
+  track.addEvent(
+  new MidiWriter.TimeSignatureEvent(Number(nn), Number(dd), 24, 8)
+);
+
 
   const duration = timeSignature === "6/8" ? "2" : "1";
 
