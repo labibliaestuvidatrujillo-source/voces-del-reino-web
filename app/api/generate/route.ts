@@ -77,13 +77,28 @@ Generate ONE complete worship song with:
 - Topic: ${topic || "worship / faith / grace"}
 - Base verse: ${verse || "none"}
 
-REQUIREMENTS:
-- Structure: Intro (optional), Verse 1, Pre-Chorus, Chorus, Verse 2, Bridge, Final Chorus.
-- Biblical, uplifting, natural language.
+REQUIREMENTS (STRICT):
+- The song MUST be deeply biblical and Christ-centered (not generic motivational).
+- Use Bible language and theology (repentance, grace, holiness, faith, the cross, resurrection).
+- The message MUST align with Scripture and historic Christian doctrine.
+- Avoid vague phrases like “positive vibes”, “universe”, “energy”, “manifest”, etc.
+
+- Include AT LEAST 2 Bible verse references in the lyrics (example: Psalm 23:1, John 3:16).
+- Optionally paraphrase Scripture lines (do not quote long passages).
+- Use worship vocabulary: Señor, Jesucristo, Cordero de Dios, Rey, Gloria, Santidad, Misericordia.
+- Mention at least ONE of these themes clearly:
+  * the Gospel / salvation through Christ
+  * the cross and redemption
+  * repentance and surrender
+  * God's holiness and majesty
+  * God's faithfulness and grace
+
+- Structure: Intro (optional), Verse 1, Pre-Chorus (optional), Chorus, Verse 2, Bridge, Final Chorus.
 - Provide suggested chords per section.
 - Use modern chord symbols: D, G, A, Bm, F#m, Em, etc.
 - The title MUST be unique and match the user's topic/prompt (do NOT reuse generic titles).
 - The lyrics MUST be 100% original and MUST NOT repeat any phrases from previous songs.
+
 
 PREVIOUS LYRICS (DO NOT REPEAT):
 ${previousLyrics?.length ? previousLyrics.join("\n---\n") : "NONE"}
@@ -96,6 +111,8 @@ Reply ONLY in JSON with this exact format:
   "timeSignature": "4/4",
   "chords": ["...","..."],
   "lyrics": "..."
+  "bibleReferences": ["...","..."]
+
 }
 `;
 
