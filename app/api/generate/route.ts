@@ -133,6 +133,14 @@ BIBLE REFERENCES (NO FAKE REFERENCES):
 CHORUS POWER RULE:
 - The chorus MUST explicitly mention Jesus Christ (Jesús / Jesucristo / Señor Jesús).
 - The chorus MUST contain at least one of: "gracia", "cruz", "sangre", "salvación", "redención".
+SCRIPTURE ANCHOR (MANDATORY):
+- If the user provides a Bible passage (example: "1 Tesalonicenses 4:16-18"), you MUST base the entire song on that passage.
+- You MUST include the main doctrines and keywords of that passage in the lyrics.
+- You MUST NOT ignore the passage and produce generic worship lyrics.
+- You MUST paraphrase the passage faithfully and keep theological accuracy.
+- You MUST include at least 4 explicit concepts from the passage.
+ANTI-GENERIC RULE:
+- Avoid generic phrases not connected to the requested passage (example: "sombra de tus alas", "valle", "tormenta") unless that imagery is explicitly in the requested Bible passage.
 
 
 
@@ -149,6 +157,7 @@ Reply ONLY in JSON with this exact format:
   "lyrics": "..."
   "bibleReferences": ["...","..."]
 "worshipTags": ["...","...","..."]
+"scriptureFocus": "..."
 
 }
 `;
