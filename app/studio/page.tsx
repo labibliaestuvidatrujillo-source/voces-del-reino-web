@@ -190,14 +190,10 @@ export default function StudioPage() {
     const next = clearHistory();
     setHistory(next);
   }
-<button
-  type="button"
-  onClick={downloadMidi}
-  disabled={!result}
-  className="w-full px-4 py-3 rounded-2xl border border-white/10 bg-black/40 text-white font-bold hover:border-white/20 transition disabled:opacity-40"
->
-  Exportar MIDI 🎹
-</button>
+
+  const downloadMidi = () => {
+  alert("Exportar MIDI funcionando ✅ (falta conectar el .mid real)")
+}
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -445,7 +441,17 @@ export default function StudioPage() {
                     <pre className="text-xs overflow-auto bg-black/70 border border-white/10 text-white p-4 rounded-2xl mt-3">
                       {JSON.stringify(result, null, 2)}
                     </pre>
-                  </details>
+                  </details><div className="pt-2 space-y-3">
+  <button
+    type="button"
+    onClick={downloadMidi}
+    disabled={!result}
+    className="w-full px-4 py-3 rounded-2xl border border-white/10 bg-black/40 text-white font-bold hover:border-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Exportar MIDI 🎹
+  </button>
+</div>
+
                 </div>
               )}
             </div>
