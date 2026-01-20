@@ -48,9 +48,7 @@ export default function StudioPage() {
       if (saved?.bpm) setBpm(saved.bpm);
       if (saved?.timeSignature) setTimeSignature(saved.timeSignature);
       if (saved?.prompt) setPrompt(saved.prompt);
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
   // ---------- LocalStorage: guardar ----------
@@ -68,9 +66,7 @@ export default function StudioPage() {
           prompt,
         })
       );
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [title, key, mode, minorType, bpm, timeSignature, prompt]);
 
   const tonalidadTexto = useMemo(() => {
@@ -79,8 +75,8 @@ export default function StudioPage() {
       minorType === "natural"
         ? "Menor natural"
         : minorType === "harmonic"
-        ? "Menor armónica"
-        : "Menor melódica";
+          ? "Menor armónica"
+          : "Menor melódica";
     return `${key} ${t}`;
   }, [key, mode, minorType]);
 
@@ -139,7 +135,8 @@ export default function StudioPage() {
           </p>
 
           <div className="text-sm text-white/50">
-            Tonalidad actual: <span className="text-white/80">{tonalidadTexto}</span>
+            Tonalidad actual:{" "}
+            <span className="text-white/80">{tonalidadTexto}</span>
           </div>
         </div>
 
@@ -160,12 +157,13 @@ export default function StudioPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 outline-none focus:border-white/25"
-                  placeholder='Ej: "La gran tribulación"'
+                  placeholder='Ej: "Espíritu Santo"'
                 />
               </FieldDark>
 
+              {/* ✅ FIX CELULAR DEFINITIVO: Siempre vertical */}
               <FieldDark label="Modo">
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <ModeButtonDark
                     active={mode === "major"}
                     onClick={() => setMode("major")}
@@ -180,9 +178,14 @@ export default function StudioPage() {
                     Menor
                   </ModeButtonDark>
                 </div>
+
+                {/* texto guía para móvil */}
+                <div className="text-xs text-white/40 mt-2">
+                  Tip: toca “Menor” para activar “Tipo de menor”.
+                </div>
               </FieldDark>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FieldDark label="Tonalidad (Key)">
                   <select
                     value={key}
@@ -209,7 +212,7 @@ export default function StudioPage() {
                 </FieldDark>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FieldDark label="Compás">
                   <select
                     value={timeSignature}
@@ -224,6 +227,7 @@ export default function StudioPage() {
                   </select>
                 </FieldDark>
 
+                {/* ✅ Tipo de menor aparece cuando mode === minor */}
                 {mode === "minor" ? (
                   <FieldDark label="Tipo de menor">
                     <select
@@ -248,7 +252,7 @@ export default function StudioPage() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 min-h-[150px] outline-none focus:border-white/25"
-                  placeholder="Ej: Worship pentecostal moderno, mensaje de esperanza..."
+                  placeholder="Ej: Que nunca me falte tu Santo Espíritu..."
                 />
               </FieldDark>
 
@@ -305,16 +309,13 @@ export default function StudioPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Resumen */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <InfoDark label="Título" value={result?.title || title || "-"} />
                   <InfoDark
                     label="Tonalidad"
                     value={
                       result?.key
-                        ? `${result.key} ${
-                            mode === "major" ? "Mayor" : "Menor"
-                          }`
+                        ? `${result.key} ${mode === "major" ? "Mayor" : "Menor"}`
                         : tonalidadTexto
                     }
                   />
@@ -325,7 +326,6 @@ export default function StudioPage() {
                   />
                 </div>
 
-                {/* Acordes */}
                 <BlockDark title="Acordes">
                   <div className="text-sm font-mono whitespace-pre-wrap leading-6 text-white/90">
                     {(result?.chords || [])
@@ -334,14 +334,12 @@ export default function StudioPage() {
                   </div>
                 </BlockDark>
 
-                {/* Letra */}
                 <BlockDark title="Letra">
                   <div className="text-sm whitespace-pre-wrap leading-6 text-white/90">
                     {String(result?.lyrics || "").replaceAll("\\n", "\n")}
                   </div>
                 </BlockDark>
 
-                {/* Debug opcional */}
                 <details className="rounded-2xl border border-white/10 bg-black/30 p-4">
                   <summary className="cursor-pointer text-sm font-semibold text-white/80">
                     Ver JSON (Debug)
@@ -361,13 +359,7 @@ export default function StudioPage() {
 
 /* ---------------- UI Components (Dark) ---------------- */
 
-function FieldDark({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FieldDark({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
       <div className="text-sm text-white/70">{label}</div>
@@ -389,24 +381,22 @@ function ModeButtonDark({
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 px-4 py-3 rounded-2xl border text-sm font-bold transition ${
+      className={`w-full px-4 py-4 rounded-2xl border text-base font-extrabold transition select-none ${
         active
-          ? "bg-white text-black border-white/20"
-          : "bg-black/40 text-white border-white/10 hover:border-white/20"
+          ? "bg-white text-black border-white/30"
+          : "bg-black/40 text-white border-white/15 hover:border-white/30"
       }`}
+      style={{
+        WebkitTapHighlightColor: "transparent",
+        touchAction: "manipulation",
+      }}
     >
       {children}
     </button>
   );
 }
 
-function PresetButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function PresetButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -427,13 +417,7 @@ function InfoDark({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BlockDark({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function BlockDark({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <div className="font-semibold text-white/90 mb-2">{title}</div>
