@@ -12,43 +12,137 @@ type Body = {
   key?: string;
   tempo?: number;
   previousLyrics?: string[];
-  scriptureFocus?: string | null;
+  scriptureFocus?: string | null; // ej: "marcos 10:46-52"
 };
 
-const ALLOWED_REFERENCES = [
-  "Psalm 23:1",
-  "Psalm 27:1",
-  "Psalm 46:1",
-  "Psalm 91:1",
-  "Psalm 103:1-5",
-  "Isaiah 6:3",
-  "Isaiah 40:31",
-  "Isaiah 53:5",
-  "Isaiah 54:10",
-  "Matthew 11:28",
-  "Matthew 28:20",
-  "John 1:29",
-  "John 3:16",
-  "John 4:23-24",
-  "John 14:6",
-  "Romans 5:8",
-  "Romans 8:1",
-  "Romans 8:28",
-  "2 Corinthians 5:17",
-  "Galatians 2:20",
-  "Ephesians 2:8-9",
-  "Ephesians 3:20",
-  "Philippians 4:6-7",
-  "Philippians 4:13",
-  "Colossians 1:13-14",
-  "Hebrews 4:16",
-  "Hebrews 12:2",
-  "Revelation 5:12",
-  "Revelation 19:6",
-];
+function normalizeScriptureFocus(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.]/g, "")
+    .replace(/—/g, "-")
+    .replace(/–/g, "-");
+}
 
-function normalizeStr(s: string) {
-  return (s || "").replace(/\s+/g, " ").trim();
+// Convierte "marcos 10:46-52" a "Mark 10:46-52"
+function mapBookToEnglish(bookEs: string) {
+  const map: Record<string, string> = {
+    genesis: "Genesis",
+    exodo: "Exodus",
+    levitico: "Leviticus",
+    numeros: "Numbers",
+    deuteronomio: "Deuteronomy",
+
+    josue: "Joshua",
+    jueces: "Judges",
+    rut: "Ruth",
+    samuel: "Samuel",
+    reyes: "Kings",
+    cronicas: "Chronicles",
+    esdras: "Ezra",
+    nehemias: "Nehemiah",
+    ester: "Esther",
+    job: "Job",
+    salmo: "Psalms",
+    salmos: "Psalms",
+    proverbios: "Proverbs",
+    eclesiastes: "Ecclesiastes",
+    cantares: "Song of Solomon",
+    isaias: "Isaiah",
+    jeremias: "Jeremiah",
+    lamentaciones: "Lamentations",
+    ezequiel: "Ezekiel",
+    daniel: "Daniel",
+
+    oseas: "Hosea",
+    joel: "Joel",
+    amos: "Amos",
+    abdias: "Obadiah",
+    jonas: "Jonah",
+    miqueas: "Micah",
+    nahum: "Nahum",
+    habacuc: "Habakkuk",
+    sofonias: "Zephaniah",
+    hageo: "Haggai",
+    zacarias: "Zechariah",
+    malaquias: "Malachi",
+
+    mateo: "Matthew",
+    marcos: "Mark",
+    lucas: "Luke",
+    juan: "John",
+    hechos: "Acts",
+    romanos: "Romans",
+    corintios: "Corinthians",
+    galatas: "Galatians",
+    efesios: "Ephesians",
+    filipenses: "Philippians",
+    colosenses: "Colossians",
+    tesalonicenses: "Thessalonians",
+    timoteo: "Timothy",
+    tito: "Titus",
+    filemon: "Philemon",
+    hebreos: "Hebrews",
+    santiago: "James",
+    pedro: "Peter",
+    judas: "Jude",
+    apocalipsis: "Revelation",
+  };
+
+  return map[bookEs] || null;
+}
+
+// Extrae "marcos" y "10:46-52"
+function parseScriptureFocus(s: string) {
+  const cleaned = normalizeScriptureFocus(s);
+
+  // soporta: "1 tesalonicenses 4:16-18"
+  const match = cleaned.match(
+    /^(?:(\d)\s*)?([a-záéíóúñ]+)\s+(\d+:\d+(?:-\d+)?)$/i
+  );
+  if (!match) return null;
+
+  const num = match[1] ? `${match[1]} ` : "";
+  const book = match[2];
+  const ref = match[3];
+
+  const englishBook = mapBookToEnglish(book);
+  if (!englishBook) return null;
+
+  // Si es libro con número, lo pegamos (ej: 1 Thessalonians)
+  const fullEnglish = `${num}${englishBook}`.trim();
+
+  return { bookEs: `${num}${book}`.trim(), bookEn: fullEnglish, ref };
+}
+
+async function fetchScripturePassage(scriptureFocus: string) {
+  const parsed = parseScriptureFocus(scriptureFocus);
+  if (!parsed) return null;
+
+  // bible-api: "Mark 10:46-52"
+  const query = encodeURIComponent(`${parsed.bookEn} ${parsed.ref}`);
+
+  // translation web = World English Bible (libre)
+  const url = `https://bible-api.com/${query}?translation=web`;
+
+  const res = await fetch(url);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+
+  const text: string = String(data?.text || "").trim();
+  const reference: string = String(data?.reference || "").trim(); // ej "Mark 10:46-52"
+  const translation: string = String(data?.translation_name || "WEB");
+
+  if (!text) return null;
+
+  return {
+    reference,
+    translation,
+    text,
+    parsed,
+  };
 }
 
 export async function POST(req: Request) {
@@ -64,125 +158,74 @@ export async function POST(req: Request) {
 
     const body = (await req.json()) as Body;
 
+    const previousLyrics: string[] = body.previousLyrics ?? [];
+
     const language = body.language ?? "es";
-    const topic = normalizeStr(body.topic ?? "");
-    const verse = normalizeStr(body.verse ?? "");
-    const style = normalizeStr(body.style ?? "Worship pentecostal moderno");
-    const key = normalizeStr(body.key ?? "D") || "D";
+    const style = (body.style ?? "Worship pentecostal congregacional").trim();
+    const key = (body.key ?? "D").trim();
     const tempo = Number(body.tempo ?? 74);
+    const topic = (body.topic ?? "").trim();
+    const verse = (body.verse ?? "").trim();
+    const scriptureFocus = (body.scriptureFocus ?? null)?.trim() || null;
 
-    const previousLyrics: string[] = Array.isArray(body.previousLyrics)
-      ? body.previousLyrics.map((x) => String(x)).filter(Boolean)
-      : [];
+    // ✅ Descargar pasaje bíblico REAL si detectó referencia
+    const scripture =
+      scriptureFocus ? await fetchScripturePassage(scriptureFocus) : null;
 
-    const scriptureFocus = body.scriptureFocus ? String(body.scriptureFocus) : null;
+    const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-    // ✅ reglas super estrictas cuando hay pasaje bíblico
-    const scriptureRules_es = scriptureFocus
+    const scriptureBlock = scripture
       ? `
-ANCLAJE BÍBLICO (MANDATORIO):
-- El usuario pidió explícitamente: "${scriptureFocus}".
-- TODA la canción debe basarse en ese pasaje (no solo una línea).
-- Debes incluir y desarrollar al menos 6 conceptos del pasaje (no genérico), por ejemplo:
-  * la trompeta / voz de mando / arcángel (si aplica)
-  * resurrección de los muertos en Cristo
-  * arrebatamiento / ser levantados juntos
-  * encuentro con el Señor en el aire
-  * consuelo y esperanza para la iglesia
-  * vivir/estar para siempre con el Señor
-- NO uses metáforas genéricas ("sombra de tus alas", "valle", "tormenta") si NO aparecen en el pasaje pedido.
-- No cambies el tema a "cruz/sangre" si el pasaje no lo menciona.
-- El CORO debe repetir y declarar la verdad central del pasaje (debe sonar congregacional y directo).
+SCRIPTURE PASSAGE (MANDATORY):
+Reference (user): ${scriptureFocus}
+Reference (api): ${scripture.reference}
+Translation: ${scripture.translation}
+Text:
+${scripture.text}
 
-REGLA ANTI-GENÉRICO:
-- Cada sección (Verso 1, Pre-coro, Coro, Verso 2, Puente) debe contener al menos 1 frase directamente conectada al pasaje.
-- Prohibido frases “relleno” no conectadas al texto.
-
-REFERENCIAS BÍBLICAS (REAL):
-- En "bibleReferences" SOLO puedes usar referencias reales y comunes de esta lista:
-${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
-- NO inventes referencias bíblicas. NO uses referencias fuera de esta lista.
+STRICT RULE:
+- You MUST anchor the whole song to the passage above.
+- Include a bridge that strongly paraphrases the key lines of this passage.
+- Do NOT add generic imagery that is not in the passage.
 `
       : `
-REQUISITOS BÍBLICOS (STRICT):
-- Canción profundamente bíblica y centrada en Cristo.
-- Lenguaje de adoración congregacional pentecostal.
-- Evitar frases vacías ("energía", "universo", "manifestar").
-- El coro debe mencionar explícitamente a Jesús (Jesús / Jesucristo / Señor Jesús).
-- Incluir 2 a 4 referencias bíblicas reales en "bibleReferences".
-REFERENCIAS PERMITIDAS:
-${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
-`;
-
-    const scriptureRules_en = scriptureFocus
-      ? `
-SCRIPTURE ANCHOR (MANDATORY):
-- The user explicitly requested: "${scriptureFocus}".
-- The ENTIRE song must be based on that passage (not only one line).
-- Include at least 6 explicit concepts from that passage (not generic).
-- Do NOT introduce unrelated generic imagery ("valley", "storm", "shadow of wings") unless in the passage.
-- The CHORUS must clearly declare the main doctrine of the passage (easy for congregation).
-
-BIBLE REFERENCES (REAL):
-- In "bibleReferences" you may ONLY use references from this allowed list:
-${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
-- Do NOT invent references.
-`
-      : `
-STRICT REQUIREMENTS:
-- Deeply biblical and Christ-centered worship.
-- Congregational pentecostal worship style.
-- No vague motivational phrases.
-- Chorus must mention Jesus explicitly.
-- Include 2-4 real Bible references (from allowed list only).
-ALLOWED REFERENCES:
-${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
-`;
-
-    const antiRepeatBlock = `
-NO REPITAS LETRAS ANTERIORES:
-${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
-`;
-
-    const systemStyle_es = `
-ESTILO & ESPÍRITU (MUY IMPORTANTE):
-- Estilo mixto obligatorio:
-  (1) Worship pentecostal congregacional (simple, fuerte, repetible)
-  (2) Profundidad de himno teológico (doctrina clara, reverencia)
-  (3) Atmosfera de adoración (santidad, gloria, rendición)
-- Coro: corto, repetible, memorable (cantable por toda la iglesia).
-- Versos: doctrina sólida, bíblica, directa, sin metáforas vacías.
-- Puente: adoración elevada (Santo / Digno / Cordero / Rey / Gloria).
-`;
-
-    const systemStyle_en = `
-STYLE & SPIRIT:
-- Must combine: pentecostal congregational worship + hymn theological depth + adoration.
-- Chorus: short, repeatable, congregational.
-- Verses: doctrinally solid, biblical, clear.
-- Bridge: pure adoration (Holy, Worthy, Lamb, King).
+SCRIPTURE PASSAGE:
+NONE
+(If user gave a Bible reference, you MUST ask implicitly by generating based on it. But here none was provided.)
 `;
 
     const prompt =
       language === "es"
         ? `
-Eres un compositor cristiano profesional.
+Eres un compositor cristiano pentecostal y teológico profesional.
 
 Genera UNA canción completa para congregación y escenario, con:
-- Título (único y relacionado al pedido)
+- Título (debe ser ÚNICO y acorde a la petición del usuario)
 - Tonalidad: ${key}
 - Tempo: ${tempo} BPM
 - Estilo: ${style}
 - Tema: ${topic || "adoración / fe / gracia"}
-- Versículo base (si lo hay): ${verse || "ninguno"}
-- Pasaje bíblico pedido (si lo hay): ${scriptureFocus || "NINGUNO"}
-
-${systemStyle_es}
+- Versículo base: ${verse || "ninguno"}
 
 REQUISITOS (STRICT):
-${scriptureRules_es}
+- Debe ser bíblica, cristocéntrica, doctrinalmente sólida.
+- No uses frases genéricas tipo: "sombra de tus alas", "valle", "tormenta" si no están en el pasaje solicitado.
+- Debe sonar a:
+  (1) congregacional pentecostal (coro fácil, repetible)
+  (2) himno teológico profundo (versos con doctrina)
+  (3) adoración reverente (puente con santidad, gloria, Cordero)
+- CORO obligatorio:
+  - debe mencionar explícitamente Jesús / Jesucristo / Señor Jesús
+  - debe incluir al menos una palabra: "gracia" o "cruz" o "sangre" o "redención" o "salvación"
+- PUENTE:
+  - NO puede ser básico
+  - debe ser bíblico y fuerte
+  - debe incluir 4+ conceptos del pasaje (si hay pasaje)
 
-${antiRepeatBlock}
+${scriptureBlock}
+
+NO REPITAS LETRAS ANTERIORES:
+${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
 
 Responde SOLO en JSON con este formato exacto:
 {
@@ -190,44 +233,45 @@ Responde SOLO en JSON con este formato exacto:
   "key": "${key}",
   "tempo": ${tempo},
   "timeSignature": "4/4",
-  "chords": ["...","..."],
+  "chords": ["...", "..."],
   "lyrics": "...",
-  "bibleReferences": ["...","..."]
+  "bibleReferences": ["...", "..."],
+  "scriptureFocus": "${scriptureFocus || ""}"
 }
 `
         : `
-You are a professional Christian songwriter.
+You are a professional Christian songwriter (Pentecostal + hymn theological depth).
 
 Generate ONE complete worship song with:
-- Title (unique and matching request)
+- Title (must be UNIQUE)
 - Key: ${key}
 - Tempo: ${tempo} BPM
 - Style: ${style}
 - Topic: ${topic || "worship / faith / grace"}
-- Base verse (if any): ${verse || "none"}
-- Requested scripture passage (if any): ${scriptureFocus || "NONE"}
-
-${systemStyle_en}
+- Base verse: ${verse || "none"}
 
 REQUIREMENTS (STRICT):
-${scriptureRules_en}
+- Must be deeply biblical and Christ-centered.
+- The chorus must be congregational and clearly mention Jesus Christ.
+- The bridge MUST be strong and scripture-heavy (not generic).
+
+${scriptureBlock}
 
 PREVIOUS LYRICS (DO NOT REPEAT):
 ${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
 
-Reply ONLY in JSON with this exact format:
+Reply ONLY in JSON:
 {
   "title": "...",
   "key": "${key}",
   "tempo": ${tempo},
   "timeSignature": "4/4",
-  "chords": ["...","..."],
+  "chords": ["...", "..."],
   "lyrics": "...",
-  "bibleReferences": ["...","..."]
+  "bibleReferences": ["...", "..."],
+  "scriptureFocus": "${scriptureFocus || ""}"
 }
 `;
-
-    const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -237,21 +281,17 @@ Reply ONLY in JSON with this exact format:
 
     const text = completion.choices?.[0]?.message?.content ?? "";
 
-    // parsear JSON
+    // parse JSON
     let data: any = null;
     try {
       data = JSON.parse(text);
     } catch {
       const start = text.indexOf("{");
       const end = text.lastIndexOf("}");
-      if (start >= 0 && end > start) {
-        data = JSON.parse(text.slice(start, end + 1));
-      } else {
-        throw new Error("La IA no devolvió JSON válido.");
-      }
+      if (start >= 0 && end > start) data = JSON.parse(text.slice(start, end + 1));
+      else throw new Error("La IA no devolvió JSON válido.");
     }
 
-    // ✅ normalizar salida
     const result = {
       title: String(data.title || "Canción generada"),
       key: String(data.key || key),
@@ -262,6 +302,10 @@ Reply ONLY in JSON with this exact format:
       bibleReferences: Array.isArray(data.bibleReferences)
         ? data.bibleReferences.map(String)
         : [],
+      scriptureFocus: String(data.scriptureFocus || scriptureFocus || ""),
+      scriptureText: scripture ? scripture.text : null, // ✅ opcional útil para debug UI
+      scriptureReference: scripture ? scripture.reference : null,
+      scriptureTranslation: scripture ? scripture.translation : null,
     };
 
     return NextResponse.json(result);
