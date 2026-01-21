@@ -9,64 +9,47 @@ type Body = {
   topic?: string;
   verse?: string;
   style?: string;
-  key?: string; // tonalidad
+  key?: string;
   tempo?: number;
   previousLyrics?: string[];
   scriptureFocus?: string | null;
 };
 
-const scriptureRules = `
-- The song MUST be deeply biblical and Christ-centered (not generic motivational).
-- Use Bible language and theology (repentance, grace, holiness, faith, the cross, resurrection).
-- The message MUST align with Scripture and historic Christian doctrine.
-- Avoid vague phrases like “positive vibes”, “universe”, “energy”, “manifest”, etc.
+const ALLOWED_REFERENCES = [
+  "Psalm 23:1",
+  "Psalm 27:1",
+  "Psalm 46:1",
+  "Psalm 91:1",
+  "Psalm 103:1-5",
+  "Isaiah 6:3",
+  "Isaiah 40:31",
+  "Isaiah 53:5",
+  "Isaiah 54:10",
+  "Matthew 11:28",
+  "Matthew 28:20",
+  "John 1:29",
+  "John 3:16",
+  "John 4:23-24",
+  "John 14:6",
+  "Romans 5:8",
+  "Romans 8:1",
+  "Romans 8:28",
+  "2 Corinthians 5:17",
+  "Galatians 2:20",
+  "Ephesians 2:8-9",
+  "Ephesians 3:20",
+  "Philippians 4:6-7",
+  "Philippians 4:13",
+  "Colossians 1:13-14",
+  "Hebrews 4:16",
+  "Hebrews 12:2",
+  "Revelation 5:12",
+  "Revelation 19:6",
+];
 
-- Include AT LEAST 2 Bible verse references in the lyrics (example: Psalm 23:1, John 3:16).
-- Optionally paraphrase Scripture lines (do not quote long passages).
-- Use worship vocabulary (Spanish): Señor, Jesucristo, Cordero de Dios, Rey, Gloria, Santidad, Misericordia.
-- Mention at least ONE of these themes clearly:
-  * the Gospel / salvation through Christ
-  * the cross and redemption
-  * repentance and surrender
-  * God's holiness and majesty
-  * God's faithfulness and grace
-
-STYLE & SPIRIT (VERY IMPORTANT):
-- Style must combine:
-  (1) Pentecostal congregational worship (simple, powerful, repeatable),
-  (2) Theological hymn depth (rich doctrine, reverent language),
-  (3) Adoration worship atmosphere (reverent, Holy Spirit, holiness).
-- Chorus MUST be easy to sing by the whole church (short, repetitive, memorable).
-- Verses MUST be doctrinally deep (like a hymn): Gospel, cross, grace, holiness, repentance, Christ-centered.
-- Include a worship/adoration bridge that elevates spiritually (themes: "Santo", "Gloria", "Digno", "Cordero", "Rey").
-- Avoid overly poetic unclear metaphors; keep it biblical, direct, and usable in church.
-
-STRUCTURE (STRICT):
-- Intro (optional), Verse 1, Pre-Chorus (optional), Chorus, Verse 2, Bridge, Final Chorus.
-- Provide suggested chords per section.
-- Use modern chord symbols: D, G, A, Bm, F#m, Em, etc.
-- Title MUST be unique and match the user's topic/prompt (do NOT reuse generic titles).
-- Lyrics MUST be 100% original and MUST NOT repeat any phrases from previous songs.
-
-BIBLE REFERENCES (NO FAKE REFERENCES):
-- Include 2 to 4 Bible references that are REAL and widely used in worship.
-
-CHORUS POWER RULE:
-- Chorus MUST explicitly mention Jesus Christ (Jesús / Jesucristo / Señor Jesús).
-- Chorus MUST contain at least one of: "gracia", "cruz", "sangre", "salvación", "redención".
-
-SCRIPTURE ANCHOR (MANDATORY):
-- If scriptureFocus is provided (example: "tesalonicenses 4:16-18"), you MUST base the entire song on that passage.
-- You MUST include doctrines and keywords from that passage in the lyrics.
-- You MUST paraphrase the passage faithfully and keep theological accuracy.
-- You MUST include at least 4 explicit concepts from that passage.
-- Do NOT ignore the passage and produce generic worship lyrics.
-
-ANTI-GENERIC RULE:
-- Avoid generic phrases not connected to the requested passage
-  (example: "sombra de tus alas", "valle", "tormenta")
-  unless that imagery is explicitly in the requested Bible passage.
-`;
+function normalizeStr(s: string) {
+  return (s || "").replace(/\s+/g, " ").trim();
+}
 
 export async function POST(req: Request) {
   try {
@@ -81,42 +64,125 @@ export async function POST(req: Request) {
 
     const body = (await req.json()) as Body;
 
-    const previousLyrics: string[] = body.previousLyrics ?? [];
-
     const language = body.language ?? "es";
-    const topic = (body.topic ?? "").trim();
-    const verse = (body.verse ?? "").trim();
-    const style = (body.style ?? "Worship pentecostal congregacional").trim();
-    const key = (body.key ?? "D").trim();
+    const topic = normalizeStr(body.topic ?? "");
+    const verse = normalizeStr(body.verse ?? "");
+    const style = normalizeStr(body.style ?? "Worship pentecostal moderno");
+    const key = normalizeStr(body.key ?? "D") || "D";
     const tempo = Number(body.tempo ?? 74);
 
-    const scriptureFocus =
-      typeof body.scriptureFocus === "string" && body.scriptureFocus.trim()
-        ? body.scriptureFocus.trim()
-        : null;
+    const previousLyrics: string[] = Array.isArray(body.previousLyrics)
+      ? body.previousLyrics.map((x) => String(x)).filter(Boolean)
+      : [];
 
-    const client = new OpenAI({ apiKey: OPENAI_API_KEY });
+    const scriptureFocus = body.scriptureFocus ? String(body.scriptureFocus) : null;
 
-    // ✅ Prompt final
+    // ✅ reglas super estrictas cuando hay pasaje bíblico
+    const scriptureRules_es = scriptureFocus
+      ? `
+ANCLAJE BÍBLICO (MANDATORIO):
+- El usuario pidió explícitamente: "${scriptureFocus}".
+- TODA la canción debe basarse en ese pasaje (no solo una línea).
+- Debes incluir y desarrollar al menos 6 conceptos del pasaje (no genérico), por ejemplo:
+  * la trompeta / voz de mando / arcángel (si aplica)
+  * resurrección de los muertos en Cristo
+  * arrebatamiento / ser levantados juntos
+  * encuentro con el Señor en el aire
+  * consuelo y esperanza para la iglesia
+  * vivir/estar para siempre con el Señor
+- NO uses metáforas genéricas ("sombra de tus alas", "valle", "tormenta") si NO aparecen en el pasaje pedido.
+- No cambies el tema a "cruz/sangre" si el pasaje no lo menciona.
+- El CORO debe repetir y declarar la verdad central del pasaje (debe sonar congregacional y directo).
+
+REGLA ANTI-GENÉRICO:
+- Cada sección (Verso 1, Pre-coro, Coro, Verso 2, Puente) debe contener al menos 1 frase directamente conectada al pasaje.
+- Prohibido frases “relleno” no conectadas al texto.
+
+REFERENCIAS BÍBLICAS (REAL):
+- En "bibleReferences" SOLO puedes usar referencias reales y comunes de esta lista:
+${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
+- NO inventes referencias bíblicas. NO uses referencias fuera de esta lista.
+`
+      : `
+REQUISITOS BÍBLICOS (STRICT):
+- Canción profundamente bíblica y centrada en Cristo.
+- Lenguaje de adoración congregacional pentecostal.
+- Evitar frases vacías ("energía", "universo", "manifestar").
+- El coro debe mencionar explícitamente a Jesús (Jesús / Jesucristo / Señor Jesús).
+- Incluir 2 a 4 referencias bíblicas reales en "bibleReferences".
+REFERENCIAS PERMITIDAS:
+${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
+`;
+
+    const scriptureRules_en = scriptureFocus
+      ? `
+SCRIPTURE ANCHOR (MANDATORY):
+- The user explicitly requested: "${scriptureFocus}".
+- The ENTIRE song must be based on that passage (not only one line).
+- Include at least 6 explicit concepts from that passage (not generic).
+- Do NOT introduce unrelated generic imagery ("valley", "storm", "shadow of wings") unless in the passage.
+- The CHORUS must clearly declare the main doctrine of the passage (easy for congregation).
+
+BIBLE REFERENCES (REAL):
+- In "bibleReferences" you may ONLY use references from this allowed list:
+${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
+- Do NOT invent references.
+`
+      : `
+STRICT REQUIREMENTS:
+- Deeply biblical and Christ-centered worship.
+- Congregational pentecostal worship style.
+- No vague motivational phrases.
+- Chorus must mention Jesus explicitly.
+- Include 2-4 real Bible references (from allowed list only).
+ALLOWED REFERENCES:
+${ALLOWED_REFERENCES.map((r) => `  - ${r}`).join("\n")}
+`;
+
+    const antiRepeatBlock = `
+NO REPITAS LETRAS ANTERIORES:
+${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
+`;
+
+    const systemStyle_es = `
+ESTILO & ESPÍRITU (MUY IMPORTANTE):
+- Estilo mixto obligatorio:
+  (1) Worship pentecostal congregacional (simple, fuerte, repetible)
+  (2) Profundidad de himno teológico (doctrina clara, reverencia)
+  (3) Atmosfera de adoración (santidad, gloria, rendición)
+- Coro: corto, repetible, memorable (cantable por toda la iglesia).
+- Versos: doctrina sólida, bíblica, directa, sin metáforas vacías.
+- Puente: adoración elevada (Santo / Digno / Cordero / Rey / Gloria).
+`;
+
+    const systemStyle_en = `
+STYLE & SPIRIT:
+- Must combine: pentecostal congregational worship + hymn theological depth + adoration.
+- Chorus: short, repeatable, congregational.
+- Verses: doctrinally solid, biblical, clear.
+- Bridge: pure adoration (Holy, Worthy, Lamb, King).
+`;
+
     const prompt =
       language === "es"
         ? `
-Eres un compositor cristiano profesional (pentecostal, congregacional y bíblico).
+Eres un compositor cristiano profesional.
 
 Genera UNA canción completa para congregación y escenario, con:
-- Título (NO genérico, único)
+- Título (único y relacionado al pedido)
 - Tonalidad: ${key}
 - Tempo: ${tempo} BPM
 - Estilo: ${style}
 - Tema: ${topic || "adoración / fe / gracia"}
-- Versículo base: ${verse || "ninguno"}
-- Pasaje bíblico solicitado (si existe): ${scriptureFocus || "NINGUNO"}
+- Versículo base (si lo hay): ${verse || "ninguno"}
+- Pasaje bíblico pedido (si lo hay): ${scriptureFocus || "NINGUNO"}
+
+${systemStyle_es}
 
 REQUISITOS (STRICT):
-${scriptureRules}
+${scriptureRules_es}
 
-NO REPITAS LETRAS ANTERIORES (PROHIBIDO repetir frases/líneas/estructuras):
-${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
+${antiRepeatBlock}
 
 Responde SOLO en JSON con este formato exacto:
 {
@@ -126,30 +192,30 @@ Responde SOLO en JSON con este formato exacto:
   "timeSignature": "4/4",
   "chords": ["...","..."],
   "lyrics": "...",
-  "bibleReferences": ["...", "..."],
-  "worshipTags": ["Santo", "Gloria", "Digno"],
-  "scriptureFocus": "${scriptureFocus || ""}"
+  "bibleReferences": ["...","..."]
 }
 `
         : `
 You are a professional Christian songwriter.
 
 Generate ONE complete worship song with:
-- Title (unique, not generic)
+- Title (unique and matching request)
 - Key: ${key}
 - Tempo: ${tempo} BPM
 - Style: ${style}
 - Topic: ${topic || "worship / faith / grace"}
-- Base verse: ${verse || "none"}
-- Scripture focus (if any): ${scriptureFocus || "NONE"}
+- Base verse (if any): ${verse || "none"}
+- Requested scripture passage (if any): ${scriptureFocus || "NONE"}
+
+${systemStyle_en}
 
 REQUIREMENTS (STRICT):
-${scriptureRules}
+${scriptureRules_en}
 
-DO NOT REPEAT previous lyrics:
+PREVIOUS LYRICS (DO NOT REPEAT):
 ${previousLyrics.length ? previousLyrics.join("\n---\n") : "NONE"}
 
-Reply ONLY in JSON:
+Reply ONLY in JSON with this exact format:
 {
   "title": "...",
   "key": "${key}",
@@ -157,11 +223,11 @@ Reply ONLY in JSON:
   "timeSignature": "4/4",
   "chords": ["...","..."],
   "lyrics": "...",
-  "bibleReferences": ["...", "..."],
-  "worshipTags": ["Holy", "Glory", "Worthy"],
-  "scriptureFocus": "${scriptureFocus || ""}"
+  "bibleReferences": ["...","..."]
 }
 `;
+
+    const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -171,12 +237,11 @@ Reply ONLY in JSON:
 
     const text = completion.choices?.[0]?.message?.content ?? "";
 
-    // Intentar parsear JSON
+    // parsear JSON
     let data: any = null;
     try {
       data = JSON.parse(text);
     } catch {
-      // Si vino con texto extra, intentamos extraer el JSON
       const start = text.indexOf("{");
       const end = text.lastIndexOf("}");
       if (start >= 0 && end > start) {
@@ -186,6 +251,7 @@ Reply ONLY in JSON:
       }
     }
 
+    // ✅ normalizar salida
     const result = {
       title: String(data.title || "Canción generada"),
       key: String(data.key || key),
@@ -196,10 +262,6 @@ Reply ONLY in JSON:
       bibleReferences: Array.isArray(data.bibleReferences)
         ? data.bibleReferences.map(String)
         : [],
-      worshipTags: Array.isArray(data.worshipTags)
-        ? data.worshipTags.map(String)
-        : [],
-      scriptureFocus: String(data.scriptureFocus || scriptureFocus || ""),
     };
 
     return NextResponse.json(result);
