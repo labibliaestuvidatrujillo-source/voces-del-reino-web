@@ -12,6 +12,8 @@ type Body = {
   key?: string; // tonalidad
   tempo?: number;
   previousLyrics?: string[];
+  scriptureFocus?: string | null;
+
 };
 
 export async function POST(req: Request) {
@@ -78,6 +80,7 @@ Generate ONE complete worship song with:
 - Base verse: ${verse || "none"}
 
 REQUIREMENTS (STRICT):
+${scriptureRules}
 - The song MUST be deeply biblical and Christ-centered (not generic motivational).
 - Use Bible language and theology (repentance, grace, holiness, faith, the cross, resurrection).
 - The message MUST align with Scripture and historic Christian doctrine.
