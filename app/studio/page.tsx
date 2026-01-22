@@ -117,58 +117,80 @@ export default function StudioPage() {
   }
 
   async function handleGenerate() {
-    setLoading(true);
-    setError(null);
-  const scriptureFocus =
-    prompt.match(/(tesalonicenses|salmo|juan|romanos|apocalipsis|mateo|marcos|lucas|hebreos|corintios|efesios|filipenses|colosenses|timoteo|tito|pedro|santiago|judas)\s*\d+:\d+(-\d+)?/i)?.[0] ?? null;
+  setLoading(true);
+  setError(null);
 
-    const payload = {
-  title,
-  prompt,
-  key,
-  mode,
-  minorType,
-  bpm,
-  timeSignature,
-  scriptureFocus,
-};
+  const fullPassage =
+    prompt.match(
+      /(tesalonicenses|salmo|juan|romanos|apocalipsis|mateo|marcos|lucas|hebreos|corintios|efesios|filipenses|colosenses|timoteo|tito|pedro|santiago|judas)\s*\d+:\d+(-\d+)?/i
+    )?.[0] ?? null;
 
+  const chapterOnly =
+    prompt.match(
+      /(tesalonicenses|salmo|juan|romanos|apocalipsis|mateo|marcos|lucas|hebreos|corintios|efesios|filipenses|colosenses|timoteo|tito|pedro|santiago|judas)\s*\d+/i
+    )?.[0] ?? null;
+
+  let scriptureFocus: string | null = fullPassage;
+
+  if (!scriptureFocus && chapterOnly) {
+    const lower = chapterOnly.toLowerCase().replace(/\s+/g, " ").trim();
+
+    if (lower === "apocalipsis 19") scriptureFocus = "apocalipsis 19:6-9";
+    else if (lower === "salmo 23") scriptureFocus = "salmo 23:1-4";
+    else if (lower === "salmo 91") scriptureFocus = "salmo 91:1-2";
+    else if (lower === "salmo 46") scriptureFocus = "salmo 46:1";
+    else if (lower === "juan 3") scriptureFocus = "juan 3:16";
+    else if (lower === "juan 4") scriptureFocus = "juan 4:23-24";
+    else if (lower === "mateo 11") scriptureFocus = "mateo 11:28";
+    else scriptureFocus = chapterOnly;
+  }
+
+  const payload = {
+    title,
+    prompt,
+    key,
+    mode,
+    minorType,
+    bpm,
+    timeSignature,
+    scriptureFocus,
+  };
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Error generando");
+    }
+
+    const data = await res.json();
+    setResult(data);
 
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      localStorage.setItem(LS_LAST_RESULT, JSON.stringify(data));
+    } catch {}
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Error generando");
-      }
-
-      const data = await res.json();
-      setResult(data);
-
-      // ✅ guardar el último resultado (para que no se borre al refrescar)
-      try {
-        localStorage.setItem(LS_LAST_RESULT, JSON.stringify(data));
-      } catch {}
-
-      // ✅ Guardar automáticamente en historial
-      const item: HistoryItem = {
-        id: makeId(),
-        createdAt: Date.now(),
-        settings: getCurrentSettings(),
-        result: data,
-      };
-      const next = addToHistory(item, 25);
-      setHistory(next);
-    } catch (e: any) {
-      setError(e?.message || "Ocurrió un error");
-    } finally {
-      setLoading(false);
-    }
+    const item: HistoryItem = {
+      id: makeId(),
+      createdAt: Date.now(),
+      settings: getCurrentSettings(),
+      result: data,
+    };
+    const next = addToHistory(item, 25);
+    setHistory(next);
+  } catch (e: any) {
+    setError(e?.message || "Ocurrió un error");
+  } finally {
+    setLoading(false);
   }
+}
+
+
 
   function handleLoadFromHistory(item: HistoryItem) {
     const s = item.settings;
