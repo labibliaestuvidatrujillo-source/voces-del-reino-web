@@ -7,7 +7,7 @@ import {
   searchBibleByKeywords,
   buildScriptureFocusFromMatches,
   formatMatchesToPromptBlock,
-} from "../../studio/lib/bible/search";
+from "@/app/lib/bible/search"
 
 
 
